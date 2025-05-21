@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import android.util.Log
+import de.larvesta.domain.model.Day
+import java.time.LocalDate
 
 class FoodViewModel(private val repository: FoodRepository) : ViewModel() {
     private val _foods = MutableStateFlow<List<Food>>(emptyList())
@@ -64,5 +66,12 @@ class FoodViewModel(private val repository: FoodRepository) : ViewModel() {
 
             _food.value = fetchedFood
         }
+    }
+
+    suspend fun fetchFoodByBarcodeSuspend(barcode: String) {
+        val fetchedFood = repository.getFoodByBarcode(barcode)
+        Log.e("FoodViewModel suspend: fetchedFood", fetchedFood.toString())
+
+        _food.value = fetchedFood
     }
 }

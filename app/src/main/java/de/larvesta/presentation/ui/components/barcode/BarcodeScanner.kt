@@ -28,6 +28,9 @@ import de.larvesta.domain.model.Nutriments
 import de.larvesta.domain.barcode.BarcodeAnalyzer
 import de.larvesta.presentation.ui.components.common.GoBackButton
 import de.larvesta.presentation.viewmodel.FoodViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,7 +45,7 @@ fun BarcodeScanner(
         ?.getStringArrayList("selectedMeals")
         ?.toMutableList() ?: mutableListOf()
 
-    var foodDetails by remember { mutableStateOf("Scan a barcode to get food details") }
+    val foodDetails = remember { mutableStateOf("Scan a barcode to get food details") }
     val context = LocalContext.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     val lifecycleOwner = LocalLifecycleOwner.current // <-- HIER speichern!
@@ -55,10 +58,6 @@ fun BarcodeScanner(
     LaunchedEffect(Unit) {
         permissionLauncher.launch(Manifest.permission.CAMERA)
     }
-
-    var scannedBarcode by remember { mutableStateOf<String?>(null) }
-    var scannedProduct by remember { mutableStateOf<Product?>(null) }
-    val fetchedFood by foodViewModel.food.collectAsState()
 
     Column(
         modifier = Modifier
@@ -80,7 +79,7 @@ fun BarcodeScanner(
         )
 
         Text(
-            text = foodDetails,
+            text = foodDetails.value,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
@@ -105,9 +104,17 @@ fun BarcodeScanner(
                     .also {
                         it.setAnalyzer(cameraExecutor, BarcodeAnalyzer { (product, barcode) ->
                             if (product != null && barcode.isNotEmpty()) {
-                                scannedBarcode = barcode
-                                scannedProduct = product
-                                foodViewModel.fetchFoodByBarcode(barcode)
+
+                                CoroutineScope(Dispatchers.Main).launch {
+                                    handleBarcodeResult(
+                                        barcode = barcode,
+                                        product = product,
+                                        foodDetails = foodDetails,
+                                        selectedMeals = selectedMeals,
+                                        foodViewModel = foodViewModel,
+                                        navController = navController
+                                    )
+                                }
                             }
                         })
                     }
@@ -121,59 +128,60 @@ fun BarcodeScanner(
                 )
             }, ContextCompat.getMainExecutor(context))
         }
+    }
+}
 
-        LaunchedEffect(fetchedFood) {
-            val barcode = scannedBarcode
-            val product = scannedProduct
-            if (barcode.isNullOrEmpty() || product == null || product.product_name == null) return@LaunchedEffect
+private suspend fun handleBarcodeResult(
+    barcode: String,
+    product: Product?,
+    foodDetails: MutableState<String>,
+    selectedMeals: MutableList<String>? = null,
+    foodViewModel: FoodViewModel,
+    navController: NavHostController
+) {
+    if (barcode.isEmpty() || product == null || product.product_name == null) return
 
-            Log.e("BarcodeScanner fetchedFood", fetchedFood.toString())
+    foodViewModel.fetchFoodByBarcodeSuspend(barcode)
+    val fetchedFood = foodViewModel.food.value
 
-            if (fetchedFood == null) {
-                val newFood = Food(
-                    id = (0..1000).random(),
-                    name = product.product_name ?: "Unknown",
-                    barcode = barcode,
-                    category = "BarcodeAdded",
-                    lastUsed = Date(),
-                    nutriments = Nutriments(
-                        calories = product.nutriments?.energy_kcal ?: 4.0,
-                        protein = product.nutriments?.proteins ?: 4.0,
-                        carbohydrates = product.nutriments?.carbohydrates ?: 4.0,
-                        fats = product.nutriments?.fat ?: 4.0
-                    )
-                )
-                foodViewModel.addFood(newFood)
-                foodDetails = "Added new food: ${newFood.name} (barcode: $barcode)"
+    Log.e("BarcodeScanner fetchedFood", fetchedFood.toString())
 
-                if (!selectedMeals.contains(newFood.name)) {
-                    selectedMeals.add(newFood.name)
-                }
+    if (fetchedFood == null) {
+        val newFood = Food(
+            id = (0..1000).random(),
+            name = product.product_name,
+            barcode = barcode,
+            category = "BarcodeAdded",
+            lastUsed = Date(),
+            nutriments = Nutriments(
+                calories = product.nutriments?.energy_kcal ?: 4.0,
+                protein = product.nutriments?.proteins ?: 4.0,
+                carbohydrates = product.nutriments?.carbohydrates ?: 4.0,
+                fats = product.nutriments?.fat ?: 4.0
+            )
+        )
+        // TODO: Check if food already exist -> safety thing
+        foodViewModel.addFood(newFood)
+        foodDetails.value = "Added new food: ${newFood.name} (barcode: $barcode)"
 
-                navController.previousBackStackEntry?.arguments?.putStringArrayList(
-                    "selectedMeals",
-                    ArrayList(selectedMeals)
-                )
-                navController.popBackStack()
-
-                //navController.navigate("mealAdder/Breakfast?addedFood=${newFood.name}")
-            } else {
-                foodDetails = "Fetched product: ${product.product_name} (barcode: $barcode)"
-
-                if (!selectedMeals.contains(product.product_name)) {
-                    selectedMeals.add(product.product_name)
-                }
-
-                navController.previousBackStackEntry?.arguments?.putStringArrayList(
-                    "selectedMeals",
-                    ArrayList(selectedMeals)
-                )
-                navController.popBackStack()
-
-                //navController.navigate("mealAdder/Breakfast?addedFood=${product.product_name}")
+        selectedMeals?.let {
+            if (!it.contains(newFood.name)) {
+                it.add(newFood.name)
             }
-            scannedBarcode = null
-            scannedProduct = null
+        }
+    } else {
+        foodDetails.value = "Fetched product: ${product.product_name} (barcode: $barcode)"
+
+        selectedMeals?.let {
+            if (!it.contains(product.product_name)) {
+                it.add(product.product_name)
+            }
         }
     }
+
+    navController.previousBackStackEntry?.arguments?.putStringArrayList(
+        "selectedMeals",
+        selectedMeals?.let { ArrayList(it) }
+    )
+    navController.popBackStack()
 }
