@@ -38,12 +38,15 @@ fun DayOverview(
     dayViewModel: DayViewModel,
     navController: NavHostController,
 ) {
-    var currentDate by remember { mutableStateOf(LocalDate.now()) }
-
+    val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
+    var currentDate by remember {
+        mutableStateOf(savedStateHandle?.get<LocalDate>("currentDate") ?: LocalDate.now())
+    }
 
     val currentDay by dayViewModel.day.collectAsState()
 
     LaunchedEffect(currentDate) {
+        savedStateHandle?.set("currentDate", currentDate)
         val fetchedDay = dayViewModel.fetchDayByDateSuspend(currentDate)
         if (fetchedDay == null) {
             val newDay = de.larvesta.domain.model.Day(
