@@ -42,6 +42,7 @@ import java.util.Date
 fun MealAdder(
     mealTime: String,
     selectedMealsRaw: String,
+    currentDateRaw: String,
     foodViewModel: FoodViewModel,
     dishViewModel: DishViewModel,
     dayViewModel: DayViewModel,
@@ -50,7 +51,10 @@ fun MealAdder(
     val foods: List<Food> = foodViewModel.foods.collectAsState().value
     val dishes: List<Dish> = dishViewModel.dishes.collectAsState().value
 
-    val currentDate = LocalDate.now()
+    Log.e("MealAdder currentDateRaw:", currentDateRaw)
+    val currentDate = LocalDate.parse(currentDateRaw)
+    Log.e("MealAdder currentDate:", currentDate.toString())
+
     dayViewModel.fetchDayByDate(currentDate)
     var currentDay = dayViewModel.day.collectAsState().value
     if (currentDay == null) {

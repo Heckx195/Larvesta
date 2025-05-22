@@ -157,7 +157,7 @@ fun MyApp(
             }
 
             composable(
-                "mealAdder/{mealType}?selectedMeals={selectedMeals}",
+                "mealAdder/{mealType}/{currentDate}?selectedMeals={selectedMeals}",
                 arguments = listOf(
                     navArgument("selectedMeals") { nullable = true }
                 ),
@@ -179,10 +179,12 @@ fun MyApp(
                 }
             ) { backStackEntry ->
                 val mealType = backStackEntry.arguments?.getString("mealType") ?: "Default"
+                val currentDate = backStackEntry.arguments?.getString("currentDate") ?: "1970-01-01"
                 val selectedMeals = backStackEntry.arguments?.getString("selectedMeals") ?: ""
                 MealAdder(
                     mealType,
                     selectedMeals,
+                    currentDate,
                     foodViewModel,
                     dishViewModel,
                     dayViewModel,

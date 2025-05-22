@@ -12,23 +12,68 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.painterResource
 import androidx.navigation.NavHostController
 import de.larvesta.R
 import de.larvesta.domain.model.Nutriments
 import de.larvesta.presentation.ui.components.meal.MealTimeItem
+import de.larvesta.presentation.viewmodel.DayViewModel
 import java.time.LocalDate
 import java.util.Locale
 
 @Composable
 fun DayOverview(
-    date: LocalDate,
-    eaten: Nutriments,
-    target: Nutriments,
+    dayViewModel: DayViewModel,
     navController: NavHostController,
 ) {
+    var currentDate by remember { mutableStateOf(LocalDate.now()) }
+
+
+    val currentDay by dayViewModel.day.collectAsState()
+
+    LaunchedEffect(currentDate) {
+        val fetchedDay = dayViewModel.fetchDayByDateSuspend(currentDate)
+        if (fetchedDay == null) {
+            val newDay = de.larvesta.domain.model.Day(
+                id = 0,
+                date = currentDate,
+                nutriments = Nutriments(0.0, 0.0, 0.0, 0.0),
+                target = Nutriments(2200.0, 72.0, 52.0, 320.0),
+                breakfast = emptyList(),
+                lunch = emptyList(),
+                dinner = emptyList(),
+                snack = emptyList()
+            )
+            dayViewModel.addDay(newDay)
+        }
+        dayViewModel.fetchDayByDateSuspend(currentDate)
+    }
+
+    val defaultNutriments = Nutriments(calories = 0.0, carbohydrates = 0.0, protein = 0.0, fats = 0.0)
+    val defaultTarget = Nutriments(calories = 1800.0, carbohydrates = 200.0, protein = 20.0, fats = 20.0)
+    val defaultDate = LocalDate.parse("1970-01-01")
+
+    val date = currentDay?.date ?: defaultDate
+    val eaten = currentDay?.nutriments ?: defaultNutriments
+    val target = currentDay?.target ?: defaultTarget
+
+
+
+
+    // ----------------------------
+
     val remainingCalories = target.calories - eaten.calories
     val calorieProgress = eaten.calories.toFloat() / target.calories
 
@@ -43,37 +88,61 @@ fun DayOverview(
         item {
             // Status bar calories
             Spacer(modifier = Modifier.height(32.dp))
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
-            ) {
-                Canvas(modifier = Modifier.size(200.dp)) {
-                    drawCircle(
-                        color = Color.LightGray,
-                        style = Stroke(width = 20f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                    )
-                    drawArc(
-                        color = primaryColor,
-                        startAngle = -90f,
-                        sweepAngle = (360 * calorieProgress).toFloat(),
-                        useCenter = false,
-                        style = Stroke(width = 20f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                    )
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "$remainingCalories kcal",
-                        style = MaterialTheme.typography.headlineMedium,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "left",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
 
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = "Previous Day",
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clickable { currentDate = currentDate.minusDays(1) }
+                )
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(200.dp)
+                ) {
+                    Canvas(modifier = Modifier.size(200.dp)) {
+                        drawCircle(
+                            color = Color.LightGray,
+                            style = Stroke(width = 20f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                        )
+                        drawArc(
+                            color = primaryColor,
+                            startAngle = -90f,
+                            sweepAngle = (360 * calorieProgress).toFloat(),
+                            useCenter = false,
+                            style = Stroke(width = 20f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "$remainingCalories kcal",
+                            style = MaterialTheme.typography.headlineMedium,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "left",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "Next Day",
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clickable { currentDate = currentDate.plusDays(1) }
+                )
+            }
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
@@ -114,6 +183,7 @@ fun DayOverview(
             MealTimeItem(
                 title = meal.first,
                 description = meal.second,
+                currentDateRaw = currentDate.toString(),
                 image = painterResource(id = meal.third),
                 navController = navController
             )

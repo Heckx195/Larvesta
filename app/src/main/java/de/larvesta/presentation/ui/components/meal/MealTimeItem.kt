@@ -11,11 +11,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.navigation.NavHostController
+import android.util.Log
 
 @Composable
 fun MealTimeItem(
     title: String,
     description: String,
+    currentDateRaw: String,
     image: Painter,
     navController: NavHostController
 ) {
@@ -48,8 +50,10 @@ fun MealTimeItem(
             )
         }
 
+        Log.e("MealTimeItem currentDateRaw:", currentDateRaw)
+
         IconButton(
-            onClick = { navController.navigate("mealAdder/$title") }
+            onClick = { navController.navigate("mealAdder/$title/$currentDateRaw") }
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
