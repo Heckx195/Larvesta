@@ -80,11 +80,13 @@ fun MealAdder(
     // Deserialisieren von selectedMeals
     val initialMeals = if (selectedMealsRaw.isNotEmpty()) selectedMealsRaw.split(",") else emptyList()
     var selectedMeals by remember { mutableStateOf(initialMeals.toList()) }
-    Log.e("MealAdder Init selectedMeals: ", selectedMeals.toString())
+    Log.e("MealAdder Init selectedMeals:", selectedMeals.toString())
 
-    if (selectedMeals.isEmpty()) {
-        selectedMeals = fetchSelectedMeals(mealTime, currentDay)
-        Log.e("MealAdder fetchMeals:", selectedMeals.toString())
+    LaunchedEffect(Unit) {
+        if (selectedMeals.isEmpty()) {
+            selectedMeals = fetchSelectedMeals(mealTime, currentDay)
+            Log.e("Reset of obj-Store:", selectedMeals.toString())
+        }
     }
 
     // Observe results from BarcodeScanner via SavedStateHandle
@@ -102,16 +104,16 @@ fun MealAdder(
     }
 
     val mealsToAdd = mutableListOf<Meal>()
-    var totalCalories by remember { mutableStateOf(0.0) }
-    var totalProtein by remember { mutableStateOf(0.0) }
-    var totalCarbohydrates by remember { mutableStateOf(0.0) }
-    var totalFats by remember { mutableStateOf(0.0) }
+    var totalCalories = remember { mutableStateOf(0.0) }
+    var totalProtein = remember { mutableStateOf(0.0) }
+    var totalCarbohydrates = remember { mutableStateOf(0.0) }
+    var totalFats = remember { mutableStateOf(0.0) }
 
     LaunchedEffect(selectedMeals) {
-        totalCalories = 0.0
-        totalProtein = 0.0
-        totalCarbohydrates = 0.0
-        totalFats = 0.0
+        totalCalories.value = 0.0
+        totalProtein.value = 0.0
+        totalCarbohydrates.value = 0.0
+        totalFats.value = 0.0
         mealsToAdd.clear()
 
         for (mealName in selectedMeals) {
@@ -120,10 +122,10 @@ fun MealAdder(
             val dish = dishes.find { it.name == mealName }
 
             if (food != null) {
-                totalCalories += food.nutriments.calories
-                totalProtein += food.nutriments.protein
-                totalCarbohydrates += food.nutriments.carbohydrates
-                totalFats += food.nutriments.fats
+                totalCalories.value += food.nutriments.calories
+                totalProtein.value += food.nutriments.protein
+                totalCarbohydrates.value += food.nutriments.carbohydrates
+                totalFats.value += food.nutriments.fats
 
                 mealsToAdd.add(
                     Meal(
@@ -133,10 +135,10 @@ fun MealAdder(
                     )
                 )
             } else if (dish != null) {
-                totalCalories += dish.nutriments.calories
-                totalProtein += dish.nutriments.protein
-                totalCarbohydrates += dish.nutriments.carbohydrates
-                totalFats += dish.nutriments.fats
+                totalCalories.value += dish.nutriments.calories
+                totalProtein.value += dish.nutriments.protein
+                totalCarbohydrates.value += dish.nutriments.carbohydrates
+                totalFats.value += dish.nutriments.fats
 
                 mealsToAdd.add(
                     Meal(
@@ -222,17 +224,17 @@ fun MealAdder(
             val defaultTarget = Nutriments(calories = 2000.0, carbohydrates = 300.0, protein = 50.0, fats = 70.0)
             val target = currentDay.target ?: defaultTarget
 
-            val caloriesProgress = totalCalories.toFloat() / target.calories.toFloat()
-            NutrientStatusBar("Calories: $totalCalories / ${target.calories}", caloriesProgress)
+            val caloriesProgress = totalCalories.value.toFloat() / target.calories.toFloat()
+            NutrientStatusBar("Calories: ${totalCalories.value} / ${target.calories}", caloriesProgress)
 
-            val carbohydratesProgress = totalCarbohydrates.toFloat() / target.carbohydrates.toFloat()
-            NutrientStatusBar("Carbohydrates: $totalCarbohydrates / ${target.carbohydrates}", carbohydratesProgress)
+            val carbohydratesProgress = totalCarbohydrates.value.toFloat() / target.carbohydrates.toFloat()
+            NutrientStatusBar("Carbohydrates: ${totalCarbohydrates.value} / ${target.carbohydrates}", carbohydratesProgress)
 
-            val proteinProgress = totalProtein.toFloat() / target.protein.toFloat()
-            NutrientStatusBar("Protein: $totalProtein / ${target.protein}", proteinProgress)
+            val proteinProgress = totalProtein.value.toFloat() / target.protein.toFloat()
+            NutrientStatusBar("Protein: ${totalProtein.value} / ${target.protein}", proteinProgress)
 
-            val fatProgress = totalFats.toFloat() / target.fats.toFloat()
-            NutrientStatusBar("Fats: $totalFats / ${target.fats}", fatProgress)
+            val fatProgress = totalFats.value.toFloat() / target.fats.toFloat()
+            NutrientStatusBar("Fats: ${totalFats.value} / ${target.fats}", fatProgress)
 
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -277,28 +279,44 @@ fun MealAdder(
         item {
             Button(
                 onClick = {
+                    Log.e("Not Update CurrentDay: ", currentDay.toString())
+
+                    // Implement function that list of the meals that are in currentDay.breakfast but not in mealsToAdd
+                    var removedMeals: List<Meal> = emptyList()
                     if (mealTime == "Breakfast") {
+                        removedMeals = getRemovedMeals(currentDay.breakfast, mealsToAdd)
                         currentDay.breakfast = mealsToAdd // TODO: Check "=" statt "+=" sollte abgewählte Meals entfernen
                     } else if (mealTime == "Lunch") {
+                        removedMeals = getRemovedMeals(currentDay.lunch, mealsToAdd)
                         currentDay.lunch = mealsToAdd
                     } else if (mealTime == "Dinner") {
+                        removedMeals = getRemovedMeals(currentDay.dinner, mealsToAdd)
                         currentDay.dinner = mealsToAdd
                     } else if (mealTime == "Snack") {
+                        removedMeals = getRemovedMeals(currentDay.snack, mealsToAdd)
                         currentDay.snack = mealsToAdd
                     } else {
-                        Log.e("MealAdder_Finish-Button:", "error in mealTime if-case")
+                        Log.e("MealAdder_Finish-Button: If-Case:", mealTime)
                     }
 
-                    currentDay.nutriments.calories += totalCalories
-                    currentDay.nutriments.protein += totalProtein
-                    currentDay.nutriments.carbohydrates += totalCarbohydrates
-                    currentDay.nutriments.fats += totalFats
+                    subtractRemovedMealNutrients(
+                        removedMeals,
+                        totalCalories,
+                        totalProtein,
+                        totalCarbohydrates,
+                        totalFats
+                    )
+
+                    currentDay.nutriments.calories += totalCalories.value
+                    currentDay.nutriments.protein += totalProtein.value
+                    currentDay.nutriments.carbohydrates += totalCarbohydrates.value
+                    currentDay.nutriments.fats += totalFats.value
 
                     Log.e("UpdateCurrentDay: ", currentDay.toString())
 
                     dayViewModel.updateDay(currentDay)
 
-                    //navController.popBackStack()
+                    navController.popBackStack()
                 }
             ) {
                 Text("Finish")
@@ -356,8 +374,6 @@ private fun fetchSelectedMeals(
     mealTime: String,
     currentDay: Day
 ) : List<String> {
-    Log.e("fetchSelectedMeals:", "Reset auf obj stored meals")
-
     val mealsObj: List<Meal> = getMealTimeObjs(mealTime, currentDay)
     val mealsString = emptyList<String>().toMutableList()
 
@@ -376,15 +392,57 @@ private fun getMealTimeObjs(
 
     if (mealTime == "Breakfast") {
         mealsObj = currentDay.breakfast
-    } else if (mealTime == "lunch") {
+    } else if (mealTime == "Lunch") {
         mealsObj = currentDay.lunch
-    } else if (mealTime == "dinner") {
+    } else if (mealTime == "Dinner") {
         mealsObj = currentDay.dinner
-    } else if (mealTime == "snack") {
+    } else if (mealTime == "Snack") {
         mealsObj = currentDay.snack
     } else {
-        Log.e("--- GetMealTime: ", "ERROR in if-case")
+        Log.e("MealAdder getMealTimeObjs: ", mealTime)
     }
 
     return mealsObj
+}
+
+private fun getRemovedMeals(
+    mealTimeList: List<Meal>,
+    mealsToAdd: List<Meal>
+): List<Meal> {
+    return mealTimeList.filter { mealTime ->
+        mealsToAdd.none { it.id == mealTime.id }
+    }
+}
+
+private fun subtractRemovedMealNutrients(
+    removedMeals: List<Meal>,
+    totalCalories: MutableState<Double>,
+    totalProtein: MutableState<Double>,
+    totalCarbohydrates: MutableState<Double>,
+    totalFats: MutableState<Double>
+) {
+    var removedCalories = 0.0
+    var removedProtein = 0.0
+    var removedCarbohydrates = 0.0
+    var removedFats = 0.0
+
+    for (meal in removedMeals) {
+        meal.food?.let {
+            removedCalories += it.nutriments.calories
+            removedProtein += it.nutriments.protein
+            removedCarbohydrates += it.nutriments.carbohydrates
+            removedFats += it.nutriments.fats
+        }
+        meal.dish?.let {
+            removedCalories += it.nutriments.calories
+            removedProtein += it.nutriments.protein
+            removedCarbohydrates += it.nutriments.carbohydrates
+            removedFats += it.nutriments.fats
+        }
+    }
+
+    totalCalories.value -= removedCalories
+    totalProtein.value -= removedProtein
+    totalCarbohydrates.value -= removedCarbohydrates
+    totalFats.value -= removedFats
 }

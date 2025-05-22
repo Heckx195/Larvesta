@@ -20,6 +20,7 @@ import de.larvesta.R
 import de.larvesta.domain.model.Nutriments
 import de.larvesta.presentation.ui.components.meal.MealTimeItem
 import java.time.LocalDate
+import java.util.Locale
 
 @Composable
 fun DayOverview(
@@ -41,6 +42,7 @@ fun DayOverview(
     ) {
         item {
             // Status bar calories
+            Spacer(modifier = Modifier.height(32.dp))
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.size(200.dp)
@@ -83,13 +85,22 @@ fun DayOverview(
 
         item {
             val carbohydratesProgress = eaten.carbohydrates.toFloat() / target.carbohydrates.toFloat()
-            NutrientStatusBar("Carbohydrates", carbohydratesProgress)
+            NutrientStatusBar(
+                "Carbohydrates: ${String.format(Locale.ROOT, "%.1f", eaten.carbohydrates)} / ${String.format(Locale.ROOT, "%.1f", target.carbohydrates)}",
+                carbohydratesProgress
+            )
 
             val proteinProgress = eaten.protein.toFloat() / target.protein.toFloat()
-            NutrientStatusBar("Protein", proteinProgress)
+            NutrientStatusBar(
+                "Protein: ${String.format(Locale.ROOT, "%.1f", eaten.protein)} / ${String.format(Locale.ROOT, "%.1f", target.protein)}",
+                proteinProgress
+            )
 
             val fatProgress = eaten.fats.toFloat() / target.fats.toFloat()
-            NutrientStatusBar("Fats", fatProgress)
+            NutrientStatusBar(
+                "Fats: ${String.format(Locale.ROOT, "%.1f", eaten.fats)} / ${String.format(Locale.ROOT, "%.1f", target.fats)}",
+                fatProgress
+            )
 
             Spacer(modifier = Modifier.height(32.dp))
         }
