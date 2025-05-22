@@ -128,12 +128,11 @@ fun MyApp(
                 }
             }
             composable(
-                "barcodeScanner",
+                "barcodeScanner?selectedMeals={selectedMeals}",
+                arguments = listOf(navArgument("selectedMeals") { nullable = true }),
                 enterTransition = {
                     fadeIn(
-                        animationSpec = tween(
-                            300, easing = LinearEasing
-                        )
+                        animationSpec = tween(300, easing = LinearEasing)
                     ) + slideIntoContainer(
                         animationSpec = tween(300, easing = EaseIn),
                         towards = AnimatedContentTransitionScope.SlideDirection.Start
@@ -141,19 +140,14 @@ fun MyApp(
                 },
                 exitTransition = {
                     fadeOut(
-                        animationSpec = tween(
-                            300, easing = LinearEasing
-                        )
+                        animationSpec = tween(300, easing = LinearEasing)
                     ) + slideOutOfContainer(
                         animationSpec = tween(300, easing = EaseOut),
                         towards = AnimatedContentTransitionScope.SlideDirection.End
                     )
                 }
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                ) {
+            ) { backStackEntry ->
+                Column(modifier = Modifier.fillMaxSize()) {
                     BarcodeScanner(
                         navController,
                         cameraExecutor,
@@ -161,16 +155,15 @@ fun MyApp(
                     )
                 }
             }
+
             composable(
-                "mealAdder/{mealType}?addedFood={addedFood}",
+                "mealAdder/{mealType}?selectedMeals={selectedMeals}",
                 arguments = listOf(
-                    navArgument("addedFood") { nullable = true }
+                    navArgument("selectedMeals") { nullable = true }
                 ),
                 enterTransition = {
                     fadeIn(
-                        animationSpec = tween(
-                            300, easing = LinearEasing
-                        )
+                        animationSpec = tween(300, easing = LinearEasing)
                     ) + slideIntoContainer(
                         animationSpec = tween(300, easing = EaseIn),
                         towards = AnimatedContentTransitionScope.SlideDirection.Start
@@ -178,9 +171,7 @@ fun MyApp(
                 },
                 exitTransition = {
                     fadeOut(
-                        animationSpec = tween(
-                            300, easing = LinearEasing
-                        )
+                        animationSpec = tween(300, easing = LinearEasing)
                     ) + slideOutOfContainer(
                         animationSpec = tween(300, easing = EaseOut),
                         towards = AnimatedContentTransitionScope.SlideDirection.End
@@ -188,9 +179,10 @@ fun MyApp(
                 }
             ) { backStackEntry ->
                 val mealType = backStackEntry.arguments?.getString("mealType") ?: "Default"
-                val addedFood = backStackEntry.arguments?.getString("addedFood")
+                val selectedMeals = backStackEntry.arguments?.getString("selectedMeals") ?: ""
                 MealAdder(
                     mealType,
+                    selectedMeals,
                     foodViewModel,
                     dishViewModel,
                     dayViewModel,

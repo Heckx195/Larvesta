@@ -40,15 +40,20 @@ fun BarcodeScanner(
     cameraExecutor: ExecutorService,
     foodViewModel: FoodViewModel
 ) {
-    val selectedMeals = navController.previousBackStackEntry
-        ?.arguments
-        ?.getStringArrayList("selectedMeals")
-        ?.toMutableList() ?: mutableListOf()
+    // Parse selectedMeals from navigation arguments
+    val backStackEntry = navController.currentBackStackEntry
+    val selectedMealsString = backStackEntry?.arguments?.getString("selectedMeals") ?: ""
+    val initialMeals = if (selectedMealsString.isNotEmpty()) selectedMealsString.split(",") else emptyList()
+    val selectedMeals = remember { mutableStateOf(initialMeals.toMutableList()) }
+    Log.e("BarcodeScanner selectedMeals: ", selectedMeals.toString())
 
     val foodDetails = remember { mutableStateOf("Scan a barcode to get food details") }
     val context = LocalContext.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
-    val lifecycleOwner = LocalLifecycleOwner.current // <-- HIER speichern!
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // State for popBackStack
+    var shouldPopBack by remember { mutableStateOf(false) }
 
     // Permissions
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -59,6 +64,16 @@ fun BarcodeScanner(
         permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
+    // This effect handles navigation in the Compose scope
+    LaunchedEffect(shouldPopBack) {
+        if (shouldPopBack) {
+            Log.e("BarcodeScanner handler: CurrentBackStackEntry: ", navController.currentBackStackEntry?.destination?.route ?: "null")
+            Log.e("BarcodeScanner handler: PreviousBackStackEntry: ", navController.previousBackStackEntry?.destination?.route ?: "null")
+            navController.popBackStack()
+            shouldPopBack = false
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -67,9 +82,13 @@ fun BarcodeScanner(
     ) {
         TopAppBar(
             title = { Text(text = "Barcode Scanner", style = MaterialTheme.typography.titleLarge) },
-            navigationIcon = { GoBackButton(onClick = { navController.popBackStack() }) }
+            navigationIcon = { GoBackButton(onClick = {
+                Log.e("BarcodeScanner BackButton: CurrentBackStackEntry: ", navController.currentBackStackEntry?.destination?.route ?: "null")
+                Log.e("BarcodeScanner BackButton: PreviousBackStackEntry: ", navController.previousBackStackEntry?.destination?.route ?: "null")
+                navController.previousBackStackEntry?.savedStateHandle?.set("selectedMeals", selectedMeals.value.toList())
+                navController.popBackStack()
+            }) }
         )
-
         val previewView = remember { PreviewView(context) }
         AndroidView(
             factory = { previewView },
@@ -104,15 +123,15 @@ fun BarcodeScanner(
                     .also {
                         it.setAnalyzer(cameraExecutor, BarcodeAnalyzer { (product, barcode) ->
                             if (product != null && barcode.isNotEmpty()) {
-
                                 CoroutineScope(Dispatchers.Main).launch {
                                     handleBarcodeResult(
                                         barcode = barcode,
                                         product = product,
                                         foodDetails = foodDetails,
-                                        selectedMeals = selectedMeals,
+                                        selectedMeals = selectedMeals.value,
                                         foodViewModel = foodViewModel,
-                                        navController = navController
+                                        navController = navController,
+                                        onScanHandled = { shouldPopBack = true }
                                     )
                                 }
                             }
@@ -137,7 +156,8 @@ private suspend fun handleBarcodeResult(
     foodDetails: MutableState<String>,
     selectedMeals: MutableList<String>? = null,
     foodViewModel: FoodViewModel,
-    navController: NavHostController
+    navController: NavHostController,
+    onScanHandled: () -> Unit
 ) {
     if (barcode.isEmpty() || product == null || product.product_name == null) return
 
@@ -160,7 +180,6 @@ private suspend fun handleBarcodeResult(
                 fats = product.nutriments?.fat ?: 4.0
             )
         )
-        // TODO: Check if food already exist -> safety thing
         foodViewModel.addFood(newFood)
         foodDetails.value = "Added new food: ${newFood.name} (barcode: $barcode)"
 
@@ -169,6 +188,7 @@ private suspend fun handleBarcodeResult(
                 it.add(newFood.name)
             }
         }
+        Log.e("BarcodeScanner selectedMeals: ", selectedMeals.toString())
     } else {
         foodDetails.value = "Fetched product: ${product.product_name} (barcode: $barcode)"
 
@@ -177,11 +197,10 @@ private suspend fun handleBarcodeResult(
                 it.add(product.product_name)
             }
         }
+        Log.e("BarcodeScanner selectedMeals: ", selectedMeals.toString())
     }
 
-    navController.previousBackStackEntry?.arguments?.putStringArrayList(
-        "selectedMeals",
-        selectedMeals?.let { ArrayList(it) }
-    )
-    navController.popBackStack()
+    // Pass updated selectedMeals back to previous screen via SavedStateHandle
+    navController.previousBackStackEntry?.savedStateHandle?.set("selectedMeals", selectedMeals?.toList() ?: emptyList())
+    onScanHandled()
 }

@@ -41,6 +41,7 @@ import java.util.Date
 @Composable
 fun MealAdder(
     mealTime: String,
+    selectedMealsRaw: String,
     foodViewModel: FoodViewModel,
     dishViewModel: DishViewModel,
     dayViewModel: DayViewModel,
@@ -76,23 +77,31 @@ fun MealAdder(
     var searchQuery by remember { mutableStateOf("") }
     val filteredItems = meals.filter { it.contains(searchQuery, ignoreCase = true) }
 
-    var selectedMeals by remember { mutableStateOf(emptyList<String>()) }
+    // Deserialisieren von selectedMeals
+    val initialMeals = if (selectedMealsRaw.isNotEmpty()) selectedMealsRaw.split(",") else emptyList()
+    var selectedMeals by remember { mutableStateOf(initialMeals.toList()) }
+    Log.e("MealAdder Init selectedMeals: ", selectedMeals.toString())
+
     if (selectedMeals.isEmpty()) {
         selectedMeals = fetchSelectedMeals(mealTime, currentDay)
         Log.e("MealAdder fetchMeals:", selectedMeals.toString())
     }
 
-    LaunchedEffect(navController.currentBackStackEntry?.arguments?.getStringArrayList("selectedMeals")) {
-        val updatedMeals = navController.currentBackStackEntry
-            ?.arguments
-            ?.getStringArrayList("selectedMeals")
-        if (updatedMeals != null) {
-            selectedMeals = updatedMeals
-        }
+    // Observe results from BarcodeScanner via SavedStateHandle
+    val currentEntry = navController.currentBackStackEntry
+    val savedStateHandle = currentEntry?.savedStateHandle
+    LaunchedEffect(Unit) {
+        savedStateHandle?.getLiveData<List<String>>("selectedMeals")
+            ?.observe(currentEntry) { result ->
+                Log.e("MealAdder result: ", result.toString())
+                // Only update if result is not null
+                if (result != null) {
+                    selectedMeals = result
+                }
+            }
     }
 
     val mealsToAdd = mutableListOf<Meal>()
-
     var totalCalories by remember { mutableStateOf(0.0) }
     var totalProtein by remember { mutableStateOf(0.0) }
     var totalCarbohydrates by remember { mutableStateOf(0.0) }
@@ -189,11 +198,7 @@ fun MealAdder(
                 Spacer(modifier = Modifier.width(8.dp))
 
                 IconButton(onClick = {
-                    navController.currentBackStackEntry?.arguments?.putStringArrayList(
-                        "selectedMeals",
-                        ArrayList(selectedMeals)
-                    )
-                    navController.navigate("barcodeScanner")
+                    navController.navigate("barcodeScanner?selectedMeals=${selectedMeals.joinToString(",")}")
                 }) {
                     val isDarkMode = isSystemInDarkTheme()
                     Image(
@@ -201,9 +206,7 @@ fun MealAdder(
                             id = if (isDarkMode) R.drawable.barcode_darkmode else R.drawable.barcode
                         ),
                         contentDescription = "Barcode Icon",
-                        modifier = Modifier
-                            .size(48.dp)
-                            .padding(4.dp),
+                        modifier = Modifier.size(48.dp).padding(4.dp),
                         contentScale = ContentScale.Fit
                     )
                 }
@@ -295,7 +298,7 @@ fun MealAdder(
 
                     dayViewModel.updateDay(currentDay)
 
-                    navController.popBackStack()
+                    //navController.popBackStack()
                 }
             ) {
                 Text("Finish")
